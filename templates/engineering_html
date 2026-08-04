@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }} - حاسبة هندسية{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8 col-xl-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom-0 pt-4">
+                <h2 class="h4 fw-bold mb-0">
+                    <i class="bi bi-rulers text-primary"></i>
+                    حاسبة الوزن الهندسية
+                </h2>
+                <p class="text-muted small mb-0">احسب الوزن من الأبعاد والكثافة</p>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label class="form-label fw-bold">الطول (متر)</label>
+                        <input type="number" class="form-control form-control-lg" id="engLength" 
+                               placeholder="6" step="0.01" min="0">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-bold">العرض (متر)</label>
+                        <input type="number" class="form-control form-control-lg" id="engWidth" 
+                               placeholder="1.05" step="0.01" min="0">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-bold">السماكة (مم)</label>
+                        <input type="number" class="form-control form-control-lg" id="engThickness" 
+                               placeholder="0.35" step="0.01" min="0">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label fw-bold">الكثافة (g/cm³)</label>
+                        <input type="number" class="form-control form-control-lg" id="engDensity" 
+                               value="7.14" step="0.01" min="0">
+                        <small class="text-muted">الزنك: 7.14 | الحديد: 7.87 | الألمنيوم: 2.70</small>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label fw-bold">عدد الحبات</label>
+                        <div class="input-group input-group-lg">
+                            <button class="btn btn-outline-secondary" type="button" onclick="adjustEngQty(-1)">
+                                <i class="bi bi-dash-lg"></i>
+                            </button>
+                            <input type="number" class="form-control text-center fw-bold" id="engQuantity" value="1" min="1">
+                            <button class="btn btn-outline-secondary" type="button" onclick="adjustEngQty(1)">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-lg w-100 mt-4" onclick="calculateEngineering()">
+                    <i class="bi bi-calculator"></i> حساب الوزن
+                </button>
+
+                <!-- Result -->
+                <div id="engResult" class="d-none mt-4">
+                    <div class="card border-primary border-2">
+                        <div class="card-body text-center">
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <div class="text-muted mb-1">وزن الحبة</div>
+                                    <div class="display-4 fw-bold text-primary" id="engUnitWeight">0</div>
+                                    <div class="text-muted">كجم</div>
+                                </div>
+                                <div class="col-12 border-top pt-3">
+                                    <div class="text-muted mb-1">الوزن الكلي ({{ engQuantity }} حبة)</div>
+                                    <div class="display-3 fw-bold text-success" id="engTotalWeight">0</div>
+                                    <div class="text-muted">كجم</div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="text-muted small">الحجم: <span id="engVolume">0</span> cm³</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-outline-primary w-100 mt-3" onclick="shareEngResult()">
+                        <i class="bi bi-share"></i> مشاركة النتيجة
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Reference -->
+        <div class="card shadow-sm border-0 mt-3">
+            <div class="card-header bg-white border-bottom-0">
+                <h6 class="fw-bold mb-0">
+                    <i class="bi bi-info-circle text-info"></i> كثافات شائعة
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-2 text-center">
+                    <div class="col-4">
+                        <div class="p-2 bg-light rounded">
+                            <div class="fw-bold">7.14</div>
+                            <small class="text-muted">الزنك</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 bg-light rounded">
+                            <div class="fw-bold">7.87</div>
+                            <small class="text-muted">الحديد</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 bg-light rounded">
+                            <div class="fw-bold">2.70</div>
+                            <small class="text-muted">الألمنيوم</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 bg-light rounded">
+                            <div class="fw-bold">8.96</div>
+                            <small class="text-muted">النحاس</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 bg-light rounded">
+                            <div class="fw-bold">11.34</div>
+                            <small class="text-muted">الرصاص</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 bg-light rounded">
+                            <div class="fw-bold">2.70</div>
+                            <small class="text-muted">ستانلس</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function adjustEngQty(delta) {
+    const input = document.getElementById('engQuantity');
+    let val = parseInt(input.value) || 0;
+    val = Math.max(1, val + delta);
+    input.value = val;
+}
+
+function calculateEngineering() {
+    const length = parseFloat(document.getElementById('engLength').value);
+    const width = parseFloat(document.getElementById('engWidth').value);
+    const thickness = parseFloat(document.getElementById('engThickness').value);
+    const density = parseFloat(document.getElementById('engDensity').value);
+    const quantity = parseInt(document.getElementById('engQuantity').value) || 1;
+    
+    if (!length || !width || !thickness || !density) {
+        alert('الرجاء إدخال جميع الأبعاد');
+        return;
+    }
+    
+    fetch('/api/engineering-calculate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({length, width, thickness, density, quantity})
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('engUnitWeight').textContent = data.unit_weight.toLocaleString('ar-SA');
+        document.getElementById('engTotalWeight').textContent = data.total_weight.toLocaleString('ar-SA');
+        document.getElementById('engVolume').textContent = data.volume.toLocaleString('ar-SA');
+        document.getElementById('engResult').classList.remove('d-none');
+    });
+}
+
+function shareEngResult() {
+    const length = document.getElementById('engLength').value;
+    const width = document.getElementById('engWidth').value;
+    const thickness = document.getElementById('engThickness').value;
+    const unitWeight = document.getElementById('engUnitWeight').textContent;
+    const totalWeight = document.getElementById('engTotalWeight').textContent;
+    const qty = document.getElementById('engQuantity').value;
+    
+    const text = `⚖️ حاسبة الوزن الهندسية\\n` +
+        `الأبعاد: ${length}×${width} م | ${thickness} مم\\n` +
+        `وزن الحبة: ${unitWeight} كجم\\n` +
+        `الوزن الكلي (${qty} حبة): ${totalWeight} كجم`;
+    
+    if (navigator.share) {
+        navigator.share({title: 'حاسبة الوزن الهندسية', text: text});
+    } else {
+        navigator.clipboard.writeText(text).then(() => alert('تم نسخ النتيجة!'));
+    }
+}
+</script>
+{% endblock %}
