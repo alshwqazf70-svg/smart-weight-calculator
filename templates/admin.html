@@ -1,51 +1,263 @@
-<!-- templates/admin.html -->
 {% extends "base.html" %}
+
+{% block title %}{{ app_name }} - لوحة الإدارة{% endblock %}
+
 {% block content %}
-<div class="card">
-    <h2>🔧 إدارة الأصناف</h2>
-    <button class="btn btn-primary" onclick="showAddItemForm()">➕ إضافة صنف جديد</button>
-    <div id="item_form" style="display:none;" class="card">
-        <input type="hidden" id="edit_item_id">
-        <div class="form-group"><label>رقم الصنف</label><input type="text" id="item_number" class="big-input"></div>
-        <div class="form-group"><label>اسم الصنف</label><input type="text" id="item_name" class="big-input"></div>
-        <div class="form-group"><label>اللون</label><input type="text" id="item_color" class="big-input"></div>
-        <div class="form-group"><label>الطول (متر)</label><input type="number" id="item_length" step="0.01" class="big-input"></div>
-        <div class="form-group"><label>العرض (متر)</label><input type="number" id="item_width" step="0.01" class="big-input"></div>
-        <div class="form-group"><label>السماكة (ملم)</label><input type="number" id="item_thickness" step="0.01" class="big-input"></div>
-        <div class="form-group"><label>وزن الحبة (كجم)</label><input type="number" id="item_unit_weight" step="0.001" class="big-input"></div>
-        <div class="form-group"><label>ملاحظة</label><input type="text" id="item_notes" class="big-input"></div>
-        <button class="btn btn-primary" onclick="saveItem()">💾 حفظ</button>
-        <button class="btn btn-outline" onclick="cancelItemForm()">إلغاء</button>
+<div class="row g-3">
+    <!-- Stats Cards -->
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body text-center">
+                <div class="display-5 text-primary mb-1">📦</div>
+                <h3 class="fw-bold">{{ stats.total_items }}</h3>
+                <small class="text-muted">إجمالي الأصناف</small>
+            </div>
+        </div>
     </div>
-    <div id="items_list" class="table-responsive"></div>
-</div>
-<div class="card" style="margin-top:20px;">
-    <h2>📦 النسخ الاحتياطي</h2>
-    <button class="btn btn-secondary" onclick="exportBackup()">⬇️ تصدير نسخة احتياطية (CSV)</button>
-    <div class="form-group" style="margin-top:10px;">
-        <label>استيراد نسخة احتياطية (ملف CSV)</label>
-        <input type="file" id="backup_file" accept=".csv">
-        <button class="btn btn-outline" onclick="importBackup()">⬆️ استيراد</button>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body text-center">
+                <div class="display-5 text-info mb-1">🧮</div>
+                <h3 class="fw-bold">{{ stats.total_calculations }}</h3>
+                <small class="text-muted">عمليات حساب</small>
+            </div>
+        </div>
     </div>
-</div>
-<div class="card" style="margin-top:20px;">
-    <h2>📝 سجل التعديلات (المعايرة)</h2>
-    <div id="calibration_logs"></div>
-</div>
-<div class="card" style="margin-top:20px;">
-    <h2>🔒 تغيير كلمة المرور</h2>
-    <div class="form-group">
-        <label>كلمة المرور الجديدة</label>
-        <input type="password" id="new_password" class="big-input">
-        <button class="btn btn-primary" onclick="changePassword()">تحديث</button>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body text-center">
+                <div class="display-5 text-success mb-1">🟢</div>
+                <h3 class="fw-bold">{{ stats.matched_count }}</h3>
+                <small class="text-muted">مطابق</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body text-center">
+                <div class="display-5 text-warning mb-1">🟠</div>
+                <h3 class="fw-bold">{{ stats.warning_count }}</h3>
+                <small class="text-muted">فرق بسيط</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body text-center">
+                <div class="display-5 text-danger mb-1">🔴</div>
+                <h3 class="fw-bold">{{ stats.danger_count }}</h3>
+                <small class="text-muted">فرق كبير</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-body text-center">
+                <div class="display-5 text-secondary mb-1">⚖️</div>
+                <h3 class="fw-bold">{{ stats.total_calibrations }}</h3>
+                <small class="text-muted">معايرات</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom-0 pt-4">
+                <h5 class="fw-bold mb-0">
+                    <i class="bi bi-lightning text-warning"></i> إجراءات سريعة
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-6 col-md-3">
+                        <a href="{{ url_for('items_list') }}" class="btn btn-outline-primary w-100 py-3">
+                            <i class="bi bi-database fs-4 d-block mb-1"></i>
+                            إدارة الأصناف
+                        </a>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <a href="{{ url_for('backup') }}" class="btn btn-outline-success w-100 py-3">
+                            <i class="bi bi-cloud-arrow-down fs-4 d-block mb-1"></i>
+                            نسخ احتياطي
+                        </a>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <a href="{{ url_for('calibrations') }}" class="btn btn-outline-warning w-100 py-3">
+                            <i class="bi bi-arrow-clockwise fs-4 d-block mb-1"></i>
+                            سجل المعايرات
+                        </a>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <a href="{{ url_for('history') }}" class="btn btn-outline-info w-100 py-3">
+                            <i class="bi bi-clock-history fs-4 d-block mb-1"></i>
+                            سجل العمليات
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Log -->
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom-0 pt-4">
+                <h5 class="fw-bold mb-0">
+                    <i class="bi bi-activity text-primary"></i> سجل النشاطات الأخيرة
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for activity in activities %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="fw-bold">{{ activity.action }}</span>
+                                {% if activity.details %}
+                                <small class="text-muted d-block">{{ activity.details }}</small>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">{{ activity.created_at }}</small>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="list-group-item text-center text-muted py-4">
+                        لا توجد نشاطات
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
+'''
+
+with open(f"{project_dir}/templates/admin.html", "w", encoding="utf-8") as f:
+    f.write(admin_html)
+
+# backup.html - Backup & Restore
+backup_html = '''{% extends "base.html" %}
+
+{% block title %}{{ app_name }} - النسخ الاحتياطي{% endblock %}
+
+{% block content %}
+<div class="row g-3 justify-content-center">
+    <div class="col-12 col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom-0 pt-4">
+                <h3 class="h4 fw-bold mb-0">
+                    <i class="bi bi-cloud-arrow-down text-success"></i>
+                    تصدير البيانات
+                </h3>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">قم بتصدير جميع بياناتك في ملف JSON أو CSV للاحتفاظ بنسخة احتياطية.</p>
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('export_backup') }}" class="btn btn-success btn-lg">
+                        <i class="bi bi-filetype-json"></i> تصدير JSON (كامل)
+                    </a>
+                    <a href="{{ url_for('export_csv') }}" class="btn btn-outline-success btn-lg">
+                        <i class="bi bi-filetype-csv"></i> تصدير CSV (الأصناف فقط)
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom-0 pt-4">
+                <h3 class="h4 fw-bold mb-0">
+                    <i class="bi bi-cloud-arrow-up text-primary"></i>
+                    استيراد البيانات
+                </h3>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">استرجع بياناتك من نسخة احتياطية سابقة.</p>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">استيراد JSON</label>
+                    <input type="file" class="form-control" id="importJsonFile" accept=".json">
+                    <button class="btn btn-primary w-100 mt-2" onclick="importJson()">
+                        <i class="bi bi-upload"></i> استيراد JSON
+                    </button>
+                </div>
+                
+                <hr>
+                
+                <div class="mb-3">
+                    <label class="form-label fw-bold">استيراد CSV</label>
+                    <input type="file" class="form-control" id="importCsvFile" accept=".csv">
+                    <button class="btn btn-outline-primary w-100 mt-2" onclick="importCsv()">
+                        <i class="bi bi-upload"></i> استيراد CSV
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="importResult" class="alert d-none mt-3"></div>
+{% endblock %}
+
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    loadItems();
-    loadCalibrationLogs();
-});
+function importJson() {
+    const fileInput = document.getElementById('importJsonFile');
+    if (!fileInput.files.length) {
+        alert('الرجاء اختيار ملف');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    
+    fetch('/api/backup/import', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        const result = document.getElementById('importResult');
+        result.classList.remove('d-none', 'alert-success', 'alert-danger');
+        if (data.success) {
+            result.classList.add('alert-success');
+            result.textContent = data.message;
+        } else {
+            result.classList.add('alert-danger');
+            result.textContent = data.error || 'خطأ في الاستيراد';
+        }
+    });
+}
+
+function importCsv() {
+    const fileInput = document.getElementById('importCsvFile');
+    if (!fileInput.files.length) {
+        alert('الرجاء اختيار ملف');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    
+    fetch('/api/backup/import-csv', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        const result = document.getElementById('importResult');
+        result.classList.remove('d-none', 'alert-success', 'alert-danger');
+        if (data.success) {
+            result.classList.add('alert-success');
+            result.textContent = data.message;
+        } else {
+            result.classList.add('alert-danger');
+            result.textContent = data.error || 'خطأ في الاستيراد';
+        }
+    });
+}
 </script>
 {% endblock %}
