@@ -1,6 +1,4 @@
-
-# index.html - Main Calculator Page
-index_html = '''{% extends "base.html" %}
+{% extends "base.html" %}
 
 {% block title %}{{ app_name }} - حاسبة التحميل{% endblock %}
 
@@ -494,9 +492,3 @@ document.addEventListener('click', function(e) {
 });
 </script>
 {% endblock %}
-'''
-
-with open(f"{project_dir}/templates/index.html", "w", encoding="utf-8") as f:
-    f.write(index_html)
-
-print("index.html created!")
