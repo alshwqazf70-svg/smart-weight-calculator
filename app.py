@@ -14,6 +14,40 @@ app = Flask(__name__)
 app.config.from_object(Config)
 db.init_app(app)
 
+# ==================== AUTO CREATE DB (For Render Free - No Shell) ====================
+# This runs BEFORE the first request to create tables if they don't exist
+
+_db_initialized = False
+
+@app.before_request
+def create_tables():
+    """Auto-create database tables on first request (Render Free compatible)"""
+    global _db_initialized
+    if _db_initialized:
+        return
+    with app.app_context():
+        try:
+            db.create_all()
+            if Item.query.count() == 0:
+                sample_items = [
+                    Item(item_number='ZN-001', name='زنك', color='أبيض', length=6.0, width=1.05, thickness=0.35, unit_weight=8.5, notes='زنك عادي'),
+                    Item(item_number='ZN-002', name='زنك', color='أزرق', length=6.0, width=1.05, thickness=0.40, unit_weight=9.2, notes='زنك ملون'),
+                    Item(item_number='ZN-003', name='زنك', color='أحمر', length=6.0, width=1.05, thickness=0.45, unit_weight=10.1, notes='زنك سميك'),
+                    Item(item_number='ZN-004', name='زنك', color='أخضر', length=6.0, width=1.05, thickness=0.50, unit_weight=11.3, notes='زنك سميك جداً'),
+                    Item(item_number='ST-001', name='حديد تسليح', color='أسود', length=12.0, width=0.012, thickness=12.0, unit_weight=10.66, notes='قطر 12 مم'),
+                    Item(item_number='ST-002', name='حديد تسليح', color='أسود', length=12.0, width=0.014, thickness=14.0, unit_weight=14.52, notes='قطر 14 مم'),
+                    Item(item_number='ST-003', name='حديد تسليح', color='أسود', length=12.0, width=0.016, thickness=16.0, unit_weight=18.96, notes='قطر 16 مم'),
+                    Item(item_number='ST-004', name='حديد تسليح', color='أسود', length=12.0, width=0.020, thickness=20.0, unit_weight=29.60, notes='قطر 20 مم'),
+                    Item(item_number='PL-001', name='صاج مجلفن', color='فضي', length=2.0, width=1.0, thickness=0.50, unit_weight=7.85, notes='صاج عادي'),
+                    Item(item_number='PL-002', name='صاج مجلفن', color='فضي', length=2.5, width=1.25, thickness=0.75, unit_weight=18.4, notes='صاج سميك'),
+                ]
+                for item in sample_items:
+                    db.session.add(item)
+                db.session.commit()
+            _db_initialized = True
+        except Exception as e:
+            app.logger.error(f"DB init error: {e}")
+
 # ==================== CONTEXT PROCESSORS ====================
 
 @app.context_processor
@@ -28,7 +62,6 @@ def inject_globals():
 @app.route('/')
 def index():
     """Main calculator page"""
-    # Get most used items for quick access
     popular_items = Item.query.order_by(Item.usage_count.desc()).limit(10).all()
     return render_template('index.html', popular_items=popular_items)
 
@@ -40,7 +73,6 @@ def search_items():
     if not query:
         items = Item.query.order_by(Item.usage_count.desc()).limit(20).all()
     else:
-        # Smart search: search in name, color, thickness, length, item_number
         try:
             num_query = float(query)
             items = Item.query.filter(
@@ -77,8 +109,6 @@ def calculate():
         return jsonify({'error': 'بيانات غير صحيحة'}), 400
     
     item = Item.query.get_or_404(item_id)
-    
-    # Increment usage count
     item.usage_count += 1
     
     expected_weight = item.unit_weight * quantity
@@ -91,7 +121,7 @@ def calculate():
         'difference': None,
         'difference_percent': None,
         'status': 'pending',
-        'status_text': '⏳ في انتظار الوزن الفعلي',
+        'status_text': 'في انتظار الوزن الفعلي',
         'status_class': 'warning'
     }
     
@@ -100,19 +130,18 @@ def calculate():
         difference = actual - expected_weight
         difference_percent = (difference / expected_weight) * 100 if expected_weight > 0 else 0
         
-        # Determine status
         abs_percent = abs(difference_percent)
         if abs_percent <= 2:
             status = 'matched'
-            status_text = '🟢 مطابق'
+            status_text = 'مطابق'
             status_class = 'success'
         elif abs_percent <= 5:
             status = 'small_diff'
-            status_text = '🟠 فرق بسيط'
+            status_text = 'فرق بسيط'
             status_class = 'warning'
         else:
             status = 'large_diff'
-            status_text = '🔴 تحذير: فرق كبير'
+            status_text = 'تحذير: فرق كبير'
             status_class = 'danger'
         
         result.update({
@@ -124,7 +153,6 @@ def calculate():
             'status_class': status_class
         })
         
-        # Save to history
         history = CalculationHistory(
             item_id=item.id,
             item_name=item.name,
@@ -138,7 +166,6 @@ def calculate():
         )
         db.session.add(history)
         
-        # Log activity
         activity = ActivityLog(
             action='حساب وزن حمولة',
             entity_type='calculation',
@@ -165,7 +192,6 @@ def calibrate():
     item = Item.query.get_or_404(item_id)
     old_weight = item.unit_weight
     
-    # Save calibration log
     calibration = CalibrationLog(
         item_id=item.id,
         old_weight=old_weight,
@@ -174,11 +200,9 @@ def calibrate():
     )
     db.session.add(calibration)
     
-    # Update item
     item.unit_weight = new_weight
     item.updated_at = datetime.now()
     
-    # Log activity
     activity = ActivityLog(
         action='معايرة وزن صنف',
         entity_type='item',
@@ -206,24 +230,20 @@ def engineering_calculate():
     """Calculate weight from dimensions"""
     data = request.get_json()
     
-    length = float(data.get('length', 0))  # meters
-    width = float(data.get('width', 0))    # meters
-    thickness = float(data.get('thickness', 0))  # mm
-    density = float(data.get('density', 7.14))   # g/cm3
+    length = float(data.get('length', 0))
+    width = float(data.get('width', 0))
+    thickness = float(data.get('thickness', 0))
+    density = float(data.get('density', 7.14))
     quantity = int(data.get('quantity', 1))
     
     if length <= 0 or width <= 0 or thickness <= 0:
         return jsonify({'error': 'الأبعاد يجب أن تكون أكبر من صفر'}), 400
     
-    # Convert to cm for calculation
     length_cm = length * 100
     width_cm = width * 100
-    thickness_cm = thickness / 10  # mm to cm
+    thickness_cm = thickness / 10
     
-    # Volume in cm3
     volume = length_cm * width_cm * thickness_cm
-    
-    # Weight in kg
     unit_weight = (volume * density) / 1000
     total_weight = unit_weight * quantity
     
@@ -266,7 +286,6 @@ def items_list():
                 )
             )
     
-    # Sorting
     if sort_by == 'name':
         query = query.order_by(Item.name)
     elif sort_by == 'usage':
@@ -358,7 +377,6 @@ def delete_item(id):
         details=f'{item.name}'
     )
     db.session.add(activity)
-    
     db.session.delete(item)
     db.session.commit()
     
@@ -521,7 +539,6 @@ def import_backup():
     try:
         data = json.load(file)
         
-        # Import items
         if 'items' in data:
             for item_data in data['items']:
                 existing = Item.query.filter_by(item_number=item_data.get('item_number')).first()
@@ -617,37 +634,7 @@ def not_found(e):
 def server_error(e):
     return render_template('error.html', code=500, message='خطأ في الخادم'), 500
 
-# ==================== INIT DATABASE ====================
-
-@app.cli.command('init-db')
-def init_db():
-    """Initialize database with sample data"""
-    db.create_all()
-    
-    # Add sample items if empty
-    if Item.query.count() == 0:
-        sample_items = [
-            Item(item_number='ZN-001', name='زنك', color='أبيض', length=6.0, width=1.05, thickness=0.35, unit_weight=8.5, notes='زنك عادي'),
-            Item(item_number='ZN-002', name='زنك', color='أزرق', length=6.0, width=1.05, thickness=0.40, unit_weight=9.2, notes='زنك ملون'),
-            Item(item_number='ZN-003', name='زنك', color='أحمر', length=6.0, width=1.05, thickness=0.45, unit_weight=10.1, notes='زنك سميك'),
-            Item(item_number='ZN-004', name='زنك', color='أخضر', length=6.0, width=1.05, thickness=0.50, unit_weight=11.3, notes='زنك سميك جداً'),
-            Item(item_number='ST-001', name='حديد تسليح', color='أسود', length=12.0, width=0.012, thickness=12.0, unit_weight=10.66, notes='قطر 12 مم'),
-            Item(item_number='ST-002', name='حديد تسليح', color='أسود', length=12.0, width=0.014, thickness=14.0, unit_weight=14.52, notes='قطر 14 مم'),
-            Item(item_number='ST-003', name='حديد تسليح', color='أسود', length=12.0, width=0.016, thickness=16.0, unit_weight=18.96, notes='قطر 16 مم'),
-            Item(item_number='ST-004', name='حديد تسليح', color='أسود', length=12.0, width=0.020, thickness=20.0, unit_weight=29.60, notes='قطر 20 مم'),
-            Item(item_number='PL-001', name='صاج مجلفن', color='فضي', length=2.0, width=1.0, thickness=0.50, unit_weight=7.85, notes='صاج عادي'),
-            Item(item_number='PL-002', name='صاج مجلفن', color='فضي', length=2.5, width=1.25, thickness=0.75, unit_weight=18.4, notes='صاج سميك'),
-        ]
-        
-        for item in sample_items:
-            db.session.add(item)
-        
-        db.session.commit()
-        print('Database initialized with sample data!')
-    else:
-        print('Database already has data.')
+# ==================== LOCAL DEV ONLY ====================
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True, host='0.0.0.0', port=5000)
