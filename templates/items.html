@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}{{ app_name }} - قاعدة البيانات{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom-0 pt-4">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <h2 class="h4 fw-bold mb-0">
+                        <i class="bi bi-database text-primary"></i>
+                        قاعدة بيانات الأصناف
+                    </h2>
+                    <a href="{{ url_for('add_item') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg"></i> إضافة صنف
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Search & Filter -->
+                <div class="row g-2 mb-3">
+                    <div class="col-12 col-md-6">
+                        <form method="get" action="{{ url_for('items_list') }}">
+                            <div class="input-group">
+                                <input type="text" name="search" class="form-control" 
+                                       placeholder="بحث: اسم، لون، سماكة..." value="{{ search }}">
+                                <button type="submit" class="btn btn-outline-primary">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                                {% if search %}
+                                <a href="{{ url_for('items_list') }}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-x-lg"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </form>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <form method="get" id="sortForm">
+                            <input type="hidden" name="search" value="{{ search }}">
+                            <select name="sort" class="form-select" onchange="document.getElementById('sortForm').submit()">
+                                <option value="name" {% if sort_by == 'name' %}selected{% endif %}>ترتيب بالاسم</option>
+                                <option value="usage" {% if sort_by == 'usage' %}selected{% endif %}>الأكثر استخداماً</option>
+                                <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>الأحدث</option>
+                                <option value="weight" {% if sort_by == 'weight' %}selected{% endif %}>الوزن</option>
+                            </select>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Items Table -->
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>الصنف</th>
+                                <th>المواصفات</th>
+                                <th class="text-center">الوزن</th>
+                                <th class="text-center">الاستخدام</th>
+                                <th class="text-center">الإجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td>
+                                    <div class="fw-bold">{{ item.name }}</div>
+                                    <small class="text-muted">#{{ item.item_number }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ item.color }}</span>
+                                    <div class="small text-muted mt-1">
+                                        {{ item.length }}×{{ item.width }} م | {{ item.thickness }} مم
+                                    </div>
+                                    {% if item.notes %}
+                                    <small class="text-muted d-block">{{ item.notes }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <span class="fw-bold text-primary fs-5">{{ item.unit_weight }}</span>
+                                    <small class="text-muted d-block">كجم</small>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark">{{ item.usage_count }} مرة</span>
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group">
+                                        <a href="{{ url_for('edit_item', id=item.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <form method="post" action="{{ url_for('delete_item', id=item.id) }}" 
+                                              class="d-inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا الصنف؟')">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-5">
+                                    <i class="bi bi-inbox fs-1"></i>
+                                    <p class="mb-0">لا توجد أصناف</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if pagination.pages > 1 %}
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+                        {% if pagination.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('items_list', page=pagination.prev_num, search=search, sort=sort_by) }}">السابق</a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                            {% if page_num %}
+                                {% if page_num == pagination.page %}
+                                <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
+                                {% else %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('items_list', page=page_num, search=search, sort=sort_by) }}">{{ page_num }}</a>
+                                </li>
+                                {% endif %}
+                            {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if pagination.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('items_list', page=pagination.next_num, search=search, sort=sort_by) }}">التالي</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+'''
+
+with open(f"{project_dir}/templates/items.html", "w", encoding="utf-8") as f:
+    f.write(items_html)
+
+# item_form.html - Add/Edit Item
+item_form_html = '''{% extends "base.html" %}
+
+{% block title %}{{ app_name }} - {% if item %}تعديل صنف{% else %}إضافة صنف{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8 col-xl-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom-0 pt-4">
+                <h2 class="h4 fw-bold mb-0">
+                    <i class="bi bi-{% if item %}pencil{% else %}plus-circle{% endif %} text-primary"></i>
+                    {% if item %}تعديل صنف{% else %}إضافة صنف جديد{% endif %}
+                </h2>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">رقم الصنف</label>
+                            <input type="text" name="item_number" class="form-control" 
+                                   value="{{ item.item_number if item else '' }}" required
+                                   placeholder="مثال: ZN-001">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">اسم الصنف</label>
+                            <input type="text" name="name" class="form-control" 
+                                   value="{{ item.name if item else '' }}" required
+                                   placeholder="مثال: زنك">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">اللون</label>
+                            <input type="text" name="color" class="form-control" 
+                                   value="{{ item.color if item else '' }}" required
+                                   placeholder="مثال: أبيض">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold">الطول (متر)</label>
+                            <input type="number" name="length" class="form-control" step="0.01" 
+                                   value="{{ item.length if item else '' }}" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold">العرض (متر)</label>
+                            <input type="number" name="width" class="form-control" step="0.01" 
+                                   value="{{ item.width if item else '' }}" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold">السماكة (مم)</label>
+                            <input type="number" name="thickness" class="form-control" step="0.01" 
+                                   value="{{ item.thickness if item else '' }}" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold">وزن الحبة (كجم)</label>
+                            <input type="number" name="unit_weight" class="form-control" step="0.001" 
+                                   value="{{ item.unit_weight if item else '' }}" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">ملاحظات</label>
+                            <textarea name="notes" class="form-control" rows="2" 
+                                      placeholder="ملاحظات إضافية...">{{ item.notes if item else '' }}</textarea>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg flex-fill">
+                            <i class="bi bi-check-lg"></i> {% if item %}حفظ التعديلات{% else %}إضافة الصنف{% endif %}
+                        </button>
+                        <a href="{{ url_for('items_list') }}" class="btn btn-outline-secondary btn-lg">
+                            <i class="bi bi-x-lg"></i> إلغاء
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
