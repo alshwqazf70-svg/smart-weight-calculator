@@ -112,9 +112,3 @@ base_html = '''<!DOCTYPE html>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
-'''
-
-with open(f"{project_dir}/templates/base.html", "w", encoding="utf-8") as f:
-    f.write(base_html)
-
-print("base.html created!")
