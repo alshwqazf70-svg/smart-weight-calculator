@@ -1,4 +1,4 @@
-render_yaml = '''services:
+services:
   - type: web
     name: smart-iron-calculator
     runtime: python
