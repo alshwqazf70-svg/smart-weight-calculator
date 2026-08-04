@@ -4,7 +4,6 @@
 
 {% block content %}
 <div class="row g-3">
-    <!-- Stats Cards -->
     <div class="col-6 col-md-4 col-lg-2">
         <div class="card shadow-sm border-0 h-100">
             <div class="card-body text-center">
@@ -60,7 +59,6 @@
         </div>
     </div>
 
-    <!-- Quick Actions -->
     <div class="col-12">
         <div class="card shadow-sm border-0">
             <div class="card-header bg-white border-bottom-0 pt-4">
@@ -99,7 +97,6 @@
         </div>
     </div>
 
-    <!-- Activity Log -->
     <div class="col-12">
         <div class="card shadow-sm border-0">
             <div class="card-header bg-white border-bottom-0 pt-4">
@@ -131,133 +128,4 @@
         </div>
     </div>
 </div>
-{% endblock %}
-'''
-
-with open(f"{project_dir}/templates/admin.html", "w", encoding="utf-8") as f:
-    f.write(admin_html)
-
-# backup.html - Backup & Restore
-backup_html = '''{% extends "base.html" %}
-
-{% block title %}{{ app_name }} - النسخ الاحتياطي{% endblock %}
-
-{% block content %}
-<div class="row g-3 justify-content-center">
-    <div class="col-12 col-md-6">
-        <div class="card shadow-sm border-0">
-            <div class="card-header bg-white border-bottom-0 pt-4">
-                <h3 class="h4 fw-bold mb-0">
-                    <i class="bi bi-cloud-arrow-down text-success"></i>
-                    تصدير البيانات
-                </h3>
-            </div>
-            <div class="card-body">
-                <p class="text-muted">قم بتصدير جميع بياناتك في ملف JSON أو CSV للاحتفاظ بنسخة احتياطية.</p>
-                <div class="d-grid gap-2">
-                    <a href="{{ url_for('export_backup') }}" class="btn btn-success btn-lg">
-                        <i class="bi bi-filetype-json"></i> تصدير JSON (كامل)
-                    </a>
-                    <a href="{{ url_for('export_csv') }}" class="btn btn-outline-success btn-lg">
-                        <i class="bi bi-filetype-csv"></i> تصدير CSV (الأصناف فقط)
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-12 col-md-6">
-        <div class="card shadow-sm border-0">
-            <div class="card-header bg-white border-bottom-0 pt-4">
-                <h3 class="h4 fw-bold mb-0">
-                    <i class="bi bi-cloud-arrow-up text-primary"></i>
-                    استيراد البيانات
-                </h3>
-            </div>
-            <div class="card-body">
-                <p class="text-muted">استرجع بياناتك من نسخة احتياطية سابقة.</p>
-                
-                <div class="mb-3">
-                    <label class="form-label fw-bold">استيراد JSON</label>
-                    <input type="file" class="form-control" id="importJsonFile" accept=".json">
-                    <button class="btn btn-primary w-100 mt-2" onclick="importJson()">
-                        <i class="bi bi-upload"></i> استيراد JSON
-                    </button>
-                </div>
-                
-                <hr>
-                
-                <div class="mb-3">
-                    <label class="form-label fw-bold">استيراد CSV</label>
-                    <input type="file" class="form-control" id="importCsvFile" accept=".csv">
-                    <button class="btn btn-outline-primary w-100 mt-2" onclick="importCsv()">
-                        <i class="bi bi-upload"></i> استيراد CSV
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div id="importResult" class="alert d-none mt-3"></div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-function importJson() {
-    const fileInput = document.getElementById('importJsonFile');
-    if (!fileInput.files.length) {
-        alert('الرجاء اختيار ملف');
-        return;
-    }
-    
-    const formData = new FormData();
-    formData.append('file', fileInput.files[0]);
-    
-    fetch('/api/backup/import', {
-        method: 'POST',
-        body: formData
-    })
-    .then(r => r.json())
-    .then(data => {
-        const result = document.getElementById('importResult');
-        result.classList.remove('d-none', 'alert-success', 'alert-danger');
-        if (data.success) {
-            result.classList.add('alert-success');
-            result.textContent = data.message;
-        } else {
-            result.classList.add('alert-danger');
-            result.textContent = data.error || 'خطأ في الاستيراد';
-        }
-    });
-}
-
-function importCsv() {
-    const fileInput = document.getElementById('importCsvFile');
-    if (!fileInput.files.length) {
-        alert('الرجاء اختيار ملف');
-        return;
-    }
-    
-    const formData = new FormData();
-    formData.append('file', fileInput.files[0]);
-    
-    fetch('/api/backup/import-csv', {
-        method: 'POST',
-        body: formData
-    })
-    .then(r => r.json())
-    .then(data => {
-        const result = document.getElementById('importResult');
-        result.classList.remove('d-none', 'alert-success', 'alert-danger');
-        if (data.success) {
-            result.classList.add('alert-success');
-            result.textContent = data.message;
-        } else {
-            result.classList.add('alert-danger');
-            result.textContent = data.error || 'خطأ في الاستيراد';
-        }
-    });
-}
-</script>
 {% endblock %}
