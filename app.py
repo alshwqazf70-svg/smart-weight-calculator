@@ -1,31 +1,24 @@
-# app.py
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file
-from models import db, Item, LoadCheck, CalibrationLog
-from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import csv
 import io
 from datetime import datetime
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file
+from werkzeug.security import generate_password_hash, check_password_hash
+from models import db, Item, LoadCheck, CalibrationLog
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///steel_calc.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///steel_calc.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 
-# كلمة مرور الإدارة الافتراضية (يمكن تغييرها عبر متغير البيئة ADMIN_PASSWORD)
+# كلمة مرور الإدارة الافتراضية (تُضبط من متغير البيئة ADMIN_PASSWORD)
 ADMIN_PASSWORD_HASH = generate_password_hash(os.environ.get('ADMIN_PASSWORD', 'admin123'))
 
-# دوال مساعدة
-def require_admin():
-    if not session.get('admin_logged_in'):
-        return False
-    return True
-
-@app.before_first_request
-def create_tables():
+# -------------------- تهيئة قاعدة البيانات --------------------
+with app.app_context():
     db.create_all()
-    # إضافة أصناف تجريبية إذا كانت قاعدة البيانات فارغة
+    # إضافة أصناف افتراضية إذا كانت قاعدة البيانات فارغة
     if Item.query.count() == 0:
         sample_items = [
             {'item_number': '001', 'name': 'زنك', 'color': 'أبيض', 'length': 6.0, 'width': 1.05, 'thickness': 0.35, 'unit_weight': 8.5, 'notes': ''},
@@ -36,6 +29,10 @@ def create_tables():
         for item in sample_items:
             db.session.add(Item(**item))
         db.session.commit()
+
+# -------------------- دوال مساعدة --------------------
+def require_admin():
+    return session.get('admin_logged_in', False)
 
 # -------------------- الصفحات الرئيسية --------------------
 @app.route('/')
@@ -72,12 +69,10 @@ def admin():
 def api_search_items():
     q = request.args.get('q', '').strip()
     if not q:
-        # إرجاع الأصناف الأكثر استخدامًا (أعلى 20)
+        # الأكثر استخدامًا
         items = Item.query.order_by(Item.usage_count.desc()).limit(20).all()
     else:
-        # بحث ذكي في الاسم، اللون، السماكة، الطول، العرض
         search = f"%{q}%"
-        # محاولة تحويل q إلى رقم للبحث في السماكة
         try:
             thickness_val = float(q)
         except:
@@ -110,7 +105,7 @@ def api_calculate():
     item_id = data.get('item_id')
     quantity = int(data.get('quantity', 0))
     actual_weight = data.get('actual_weight')
-    
+
     if item_id:
         item = Item.query.get(item_id)
         if not item:
@@ -118,33 +113,28 @@ def api_calculate():
         unit_weight = item.unit_weight
         item_name = item.name
         item_color = item.color
-        # زيادة عداد الاستخدام
         item.usage_count = (item.usage_count or 0) + 1
         db.session.commit()
     else:
-        # إذا لم يتم اختيار صنف، نأخذ بيانات الحساب الهندسي من الطلب
+        # حساب هندسي بدون صنف
         unit_weight = float(data.get('unit_weight', 0))
         item_name = data.get('name', 'حساب هندسي')
         item_color = data.get('color', '-')
         item_id = None
 
-    expected_weight = unit_weight * quantity
-    expected_weight = round(expected_weight, 2)
+    expected_weight = round(unit_weight * quantity, 2)
 
     difference = None
     difference_percent = None
     status = None
     alert_message = None
+    status_class = ''
 
     if actual_weight is not None and actual_weight != '':
         actual_weight = float(actual_weight)
         difference = round(actual_weight - expected_weight, 2)
-        if expected_weight != 0:
-            difference_percent = round((difference / expected_weight) * 100, 2)
-        else:
-            difference_percent = 0
+        difference_percent = round((difference / expected_weight) * 100, 2) if expected_weight != 0 else 0
 
-        # تحديد الحالة والتنبيه
         abs_diff_percent = abs(difference_percent)
         if abs_diff_percent <= 0.5:
             status = 'مطابق'
@@ -156,7 +146,6 @@ def api_calculate():
             status = 'تحذير: فرق كبير'
             status_class = 'red'
 
-        # تنبيه ذكي
         if difference > 0 and abs_diff_percent > 2:
             extra_pieces = round(difference / unit_weight) if unit_weight > 0 else 0
             alert_message = f'⚠️ الوزن الفعلي أكبر من المتوقع بمقدار {difference} كجم. قد يكون هناك {extra_pieces} حبة/حبات زيادة.'
@@ -189,9 +178,10 @@ def api_calculate():
         'difference': difference,
         'difference_percent': difference_percent,
         'status': status,
-        'status_class': status_class if status else '',
+        'status_class': status_class,
         'alert_message': alert_message,
-        'check_id': check.id
+        'check_id': check.id,
+        'item_id': item_id  # مهم لزر المعايرة
     })
 
 @app.route('/api/history')
@@ -225,17 +215,16 @@ def api_calibrate():
     check_id = data.get('check_id')
     new_unit_weight = float(data.get('new_unit_weight'))
     reason = data.get('reason', '')
-    
+
     check = LoadCheck.query.get(check_id)
     if not check or not check.item_id:
         return jsonify({'error': 'لا يمكن معايرة هذا الصنف'}), 400
-    
+
     item = Item.query.get(check.item_id)
     if not item:
         return jsonify({'error': 'الصنف غير موجود'}), 404
-    
+
     old_weight = item.unit_weight
-    # حفظ سجل المعايرة
     log = CalibrationLog(
         item_id=item.id,
         old_weight=old_weight,
@@ -245,7 +234,7 @@ def api_calibrate():
     item.unit_weight = new_unit_weight
     db.session.add(log)
     db.session.commit()
-    
+
     return jsonify({'success': True, 'message': f'تم تحديث وزن الحبة من {old_weight} إلى {new_unit_weight}'})
 
 # -------------------- واجهات الإدارة (API) --------------------
@@ -256,20 +245,19 @@ def api_admin_items():
     if request.method == 'POST':
         data = request.json
         item_id = data.get('id')
-        if item_id:  # تعديل
+        if item_id:
             item = Item.query.get(item_id)
-            if item:
-                item.item_number = data['item_number']
-                item.name = data['name']
-                item.color = data['color']
-                item.length = float(data['length'])
-                item.width = float(data['width'])
-                item.thickness = float(data['thickness'])
-                item.unit_weight = float(data['unit_weight'])
-                item.notes = data.get('notes', '')
-                db.session.commit()
-                return jsonify({'success': True})
-        else:  # إضافة
+            if not item:
+                return jsonify({'error': 'الصنف غير موجود'}), 404
+            item.item_number = data['item_number']
+            item.name = data['name']
+            item.color = data['color']
+            item.length = float(data['length'])
+            item.width = float(data['width'])
+            item.thickness = float(data['thickness'])
+            item.unit_weight = float(data['unit_weight'])
+            item.notes = data.get('notes', '')
+        else:
             new_item = Item(
                 item_number=data['item_number'],
                 name=data['name'],
@@ -281,9 +269,9 @@ def api_admin_items():
                 notes=data.get('notes', '')
             )
             db.session.add(new_item)
-            db.session.commit()
-            return jsonify({'success': True})
-    else:  # GET
+        db.session.commit()
+        return jsonify({'success': True})
+    else:
         items = Item.query.order_by(Item.name, Item.thickness).all()
         return jsonify([{
             'id': i.id,
@@ -313,13 +301,12 @@ def api_admin_delete_item(item_id):
 def api_admin_export():
     if not require_admin():
         return jsonify({'error': 'غير مصرح'}), 403
-    # تصدير الأصناف
     si = io.StringIO()
     cw = csv.writer(si)
     cw.writerow(['رقم الصنف', 'اسم الصنف', 'اللون', 'الطول', 'العرض', 'السماكة', 'وزن الحبة', 'ملاحظة'])
     for item in Item.query.all():
         cw.writerow([item.item_number, item.name, item.color, item.length, item.width, item.thickness, item.unit_weight, item.notes])
-    
+
     output = io.BytesIO()
     output.write(si.getvalue().encode('utf-8-sig'))
     output.seek(0)
@@ -334,7 +321,7 @@ def api_admin_import():
         return jsonify({'error': 'لم يتم اختيار ملف'}), 400
     stream = io.StringIO(file.stream.read().decode("utf-8-sig"))
     reader = csv.reader(stream)
-    next(reader, None)  # تخطي رأس العمود
+    next(reader, None)
     count = 0
     for row in reader:
         if len(row) < 7:
@@ -377,8 +364,4 @@ def api_change_password():
         return jsonify({'error': 'كلمة المرور فارغة'}), 400
     global ADMIN_PASSWORD_HASH
     ADMIN_PASSWORD_HASH = generate_password_hash(new_password)
-    # تحديث متغير البيئة لو أمكن، لكن نكتفي بتغيير المتغير العام في الجلسة الحالية
     return jsonify({'success': True})
-
-if __name__ == '__main__':
-    app.run(debug=True)
