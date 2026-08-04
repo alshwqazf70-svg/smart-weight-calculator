@@ -1,0 +1,17 @@
+<!-- templates/login.html -->
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:400px; margin:50px auto;">
+    <h2>🔐 دخول الإدارة</h2>
+    {% if error %}
+    <div class="alert-message">{{ error }}</div>
+    {% endif %}
+    <form method="post">
+        <div class="form-group">
+            <label>كلمة المرور</label>
+            <input type="password" name="password" class="big-input" required>
+        </div>
+        <button type="submit" class="btn btn-primary full-width">دخول</button>
+    </form>
+</div>
+{% endblock %}
