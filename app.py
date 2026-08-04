@@ -1,6 +1,4 @@
-
-# app.py - Main Flask Application
-app_code = '''import os
+import os
 import json
 from datetime import datetime, timedelta
 from io import BytesIO, StringIO
