@@ -1,78 +1,502 @@
-<!-- templates/index.html -->
-{% extends "base.html" %}
+
+# index.html - Main Calculator Page
+index_html = '''{% extends "base.html" %}
+
+{% block title %}{{ app_name }} - حاسبة التحميل{% endblock %}
+
 {% block content %}
-<div class="card">
-    <h2>🧮 حساب وزن الحمولة</h2>
-    <div class="form-group">
-        <label for="item_search">اختيار الصنف (بحث سريع)</label>
-        <input type="text" id="item_search" placeholder="ابحث بالاسم، اللون، السماكة..." class="search-input">
-        <input type="hidden" id="selected_item_id">
-        <div id="search_results" class="search-dropdown"></div>
-    </div>
-    <div id="item_details" class="item-details" style="display:none;">
-        <div class="detail-row"><span class="label">اسم الصنف:</span> <span id="d_name"></span></div>
-        <div class="detail-row"><span class="label">اللون:</span> <span id="d_color"></span></div>
-        <div class="detail-row"><span class="label">الطول:</span> <span id="d_length"></span> متر</div>
-        <div class="detail-row"><span class="label">العرض:</span> <span id="d_width"></span> متر</div>
-        <div class="detail-row"><span class="label">السماكة:</span> <span id="d_thickness"></span> ملم</div>
-        <div class="detail-row highlight"><span class="label">وزن الحبة:</span> <span id="d_unit_weight"></span> كجم</div>
-    </div>
-    <div class="form-group">
-        <label for="quantity">عدد الحبات</label>
-        <input type="number" id="quantity" min="1" value="1" class="big-input">
-    </div>
-    <div class="result-box" id="expected_weight_box">
-        <span class="result-label">الوزن المتوقع:</span> <span class="result-value" id="expected_weight_display">--</span> كجم
-    </div>
-    <div class="form-group">
-        <label for="actual_weight">وزن الميزان الفعلي (اختياري)</label>
-        <input type="number" id="actual_weight" step="0.01" class="big-input" placeholder="أدخل الوزن الفعلي">
-    </div>
-    <button class="btn btn-primary full-width" onclick="calculate()">⚖️ حساب ومقارنة</button>
-    <div id="comparison_result" style="display:none; margin-top:20px;">
-        <div class="card status-card" id="status_card">
-            <h3 id="status_text"></h3>
-            <div class="comparison-details">
-                <div>الفرق: <span id="diff_val"></span> كجم</div>
-                <div>نسبة الفرق: <span id="diff_percent"></span>%</div>
-                <div id="alert_msg" class="alert-message"></div>
+<div class="row g-3">
+    <!-- Calculator Card -->
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom-0 pt-4">
+                <h2 class="h4 fw-bold mb-0">
+                    <i class="bi bi-calculator text-primary"></i>
+                    حساب وزن الحمولة
+                </h2>
+                <p class="text-muted small mb-0">اختر الصنف وأدخل الكمية للتحقق من الوزن</p>
+            </div>
+            <div class="card-body">
+                <!-- Item Search -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">البحث عن الصنف</label>
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="bi bi-search text-muted"></i>
+                        </span>
+                        <input type="text" 
+                               class="form-control border-start-0" 
+                               id="itemSearch" 
+                               placeholder="ابحث بالاسم، اللون، السماكة، أو رقم الصنف..."
+                               autocomplete="off">
+                    </div>
+                    <div id="searchResults" class="search-results d-none"></div>
+                </div>
+
+                <!-- Selected Item Info -->
+                <div id="selectedItemCard" class="d-none">
+                    <div class="card bg-light border-0 mb-4">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h5 class="fw-bold mb-1" id="siName">-</h5>
+                                    <span class="badge bg-secondary" id="siColor">-</span>
+                                    <span class="badge bg-info text-dark" id="siNumber">-</span>
+                                </div>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                            <div class="row g-2 text-center">
+                                <div class="col-4">
+                                    <div class="p-2 bg-white rounded">
+                                        <div class="text-muted small">الطول</div>
+                                        <div class="fw-bold" id="siLength">-</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 bg-white rounded">
+                                        <div class="text-muted small">العرض</div>
+                                        <div class="fw-bold" id="siWidth">-</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 bg-white rounded">
+                                        <div class="text-muted small">السماكة</div>
+                                        <div class="fw-bold" id="siThickness">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-center">
+                                <span class="text-muted small">وزن الحبة:</span>
+                                <span class="fw-bold text-primary fs-5" id="siWeight">-</span>
+                                <span class="text-muted small">كجم</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quantity Input -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">عدد الحبات</label>
+                        <div class="input-group input-group-lg">
+                            <button class="btn btn-outline-secondary" type="button" onclick="adjustQty(-1)">
+                                <i class="bi bi-dash-lg"></i>
+                            </button>
+                            <input type="number" class="form-control text-center fw-bold fs-4" 
+                                   id="quantity" value="1" min="1">
+                            <button class="btn btn-outline-secondary" type="button" onclick="adjustQty(1)">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Calculate Button -->
+                    <button class="btn btn-primary btn-lg w-100 mb-4" onclick="calculateWeight()">
+                        <i class="bi bi-calculator"></i>
+                        حساب الوزن المتوقع
+                    </button>
+
+                    <!-- Expected Weight Result -->
+                    <div id="expectedResult" class="d-none">
+                        <div class="card border-primary border-2 mb-4">
+                            <div class="card-body text-center">
+                                <div class="text-muted mb-1">الوزن المتوقع</div>
+                                <div class="display-3 fw-bold text-primary" id="expectedWeight">0</div>
+                                <div class="text-muted">كجم</div>
+                            </div>
+                        </div>
+
+                        <!-- Actual Weight Input -->
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">وزن الميزان الفعلي (كجم)</label>
+                            <input type="number" class="form-control form-control-lg text-center fw-bold fs-3" 
+                                   id="actualWeight" placeholder="أدخل وزن الكرين..." step="0.01">
+                        </div>
+
+                        <button class="btn btn-success btn-lg w-100 mb-4" onclick="compareWeight()">
+                            <i class="bi bi-check-circle"></i>
+                            مقارنة الوزن
+                        </button>
+
+                        <!-- Comparison Result -->
+                        <div id="comparisonResult" class="d-none">
+                            <div class="card mb-3" id="resultCard">
+                                <div class="card-body text-center">
+                                    <div class="display-1 mb-2" id="resultIcon">🟢</div>
+                                    <h3 class="fw-bold" id="resultStatus">-</h3>
+                                    <div class="row g-2 mt-3">
+                                        <div class="col-6">
+                                            <div class="p-2 bg-light rounded">
+                                                <div class="text-muted small">الفرق</div>
+                                                <div class="fw-bold fs-4" id="diffValue">-</div>
+                                                <div class="text-muted small">كجم</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="p-2 bg-light rounded">
+                                                <div class="text-muted small">نسبة الفرق</div>
+                                                <div class="fw-bold fs-4" id="diffPercent">-</div>
+                                                <div class="text-muted small">%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-3 alert" id="resultAlert" role="alert">
+                                        <span id="resultMessage">-</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Calibration Suggestion -->
+                            <div id="calibrationSuggestion" class="d-none">
+                                <div class="card border-warning">
+                                    <div class="card-body">
+                                        <h6 class="fw-bold">
+                                            <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+                                            اقتراح معايرة
+                                        </h6>
+                                        <p class="mb-2">يبدو أن وزن الحبة الفعلي مختلف. هل تريد تحديثه؟</p>
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-warning btn-sm" onclick="showCalibrationModal()">
+                                                <i class="bi bi-arrow-clockwise"></i> تحديث الوزن
+                                            </button>
+                                            <button class="btn btn-outline-secondary btn-sm" onclick="hideCalibration()">
+                                                تجاهل
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Share Button -->
+                            <button class="btn btn-outline-primary w-100" onclick="shareResult()">
+                                <i class="bi bi-share"></i> مشاركة النتيجة
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        <button class="btn btn-outline" id="calibrate_btn" style="display:none;" onclick="calibrateWeight()">📝 تحديث وزن الصنف بناءً على الميزان</button>
+    </div>
+
+    <!-- Popular Items Sidebar -->
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white border-bottom-0 pt-4">
+                <h5 class="fw-bold mb-0">
+                    <i class="bi bi-fire text-danger"></i>
+                    الأكثر استخداماً
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for item in popular_items %}
+                    <button type="button" 
+                            class="list-group-item list-group-item-action"
+                            onclick="selectItemById({{ item.id }})">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold">{{ item.name }}</div>
+                                <small class="text-muted">{{ item.color }} | {{ item.thickness }} مم</small>
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-bold text-primary">{{ item.unit_weight }} كجم</div>
+                                <small class="text-muted">{{ item.length }}×{{ item.width }} م</small>
+                            </div>
+                        </div>
+                    </button>
+                    {% else %}
+                    <div class="list-group-item text-center text-muted py-4">
+                        <i class="bi bi-inbox fs-1"></i>
+                        <p class="mb-0">لا توجد أصناف بعد</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="card" style="margin-top:20px;">
-    <h2>📐 حاسبة الوزن الهندسية (عند عدم وجود صنف)</h2>
-    <div class="form-group">
-        <label for="eng_length">الطول (متر)</label>
-        <input type="number" id="eng_length" step="0.01" class="big-input" value="6">
-    </div>
-    <div class="form-group">
-        <label for="eng_width">العرض (متر)</label>
-        <input type="number" id="eng_width" step="0.01" class="big-input" value="1.05">
-    </div>
-    <div class="form-group">
-        <label for="eng_thickness">السماكة (ملم)</label>
-        <input type="number" id="eng_thickness" step="0.01" class="big-input" value="0.35">
-    </div>
-    <div class="form-group">
-        <label for="density">الكثافة (جم/سم³) الافتراضي للزنك 7.14</label>
-        <input type="number" id="density" step="0.01" class="big-input" value="7.14">
-    </div>
-    <button class="btn btn-secondary" onclick="calculateEngineering()">🔢 حساب وزن الحبة</button>
-    <div id="eng_result" style="display:none; margin-top:15px;">
-        <div class="result-box">
-            <span class="result-label">وزن الحبة المتوقع:</span> <span class="result-value" id="eng_unit_weight"></span> كجم
-        </div>
-        <div class="form-group" style="margin-top:15px;">
-            <label for="eng_quantity">عدد الحبات</label>
-            <input type="number" id="eng_quantity" min="1" value="1" class="big-input">
-        </div>
-        <button class="btn btn-primary" onclick="calculateEngLoad()">⚖️ حساب وزن الحمولة</button>
-        <div id="eng_load_result" style="display:none; margin-top:10px;" class="result-box">
-            <span class="result-label">وزن الحمولة المتوقع:</span> <span class="result-value" id="eng_load_weight"></span> كجم
+<!-- Calibration Modal -->
+<div class="modal fade" id="calibrationModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">معايرة وزن الصنف</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>سيتم تحديث وزن الحبة بناءً على الوزن الفعلي المقاس.</p>
+                <div class="mb-3">
+                    <label class="form-label">الوزن القديم</label>
+                    <input type="text" class="form-control" id="calOldWeight" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">الوزن الجديد</label>
+                    <input type="text" class="form-control" id="calNewWeight" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">سبب المعايرة (اختياري)</label>
+                    <textarea class="form-control" id="calReason" rows="2" placeholder="مثال: تغيير في المواصفات..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-warning" onclick="confirmCalibration()">
+                    <i class="bi bi-arrow-clockwise"></i> تحديث الوزن
+                </button>
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedItem = null;
+let lastCalculation = null;
+
+// Search functionality
+document.getElementById('itemSearch').addEventListener('input', debounce(function() {
+    const query = this.value.trim();
+    if (query.length < 1) {
+        document.getElementById('searchResults').classList.add('d-none');
+        return;
+    }
+    
+    fetch(`/api/items/search?q=${encodeURIComponent(query)}`)
+        .then(r => r.json())
+        .then(data => showSearchResults(data))
+        .catch(err => console.error(err));
+}, 300));
+
+function showSearchResults(items) {
+    const container = document.getElementById('searchResults');
+    if (items.length === 0) {
+        container.innerHTML = '<div class="p-3 text-muted text-center">لا توجد نتائج</div>';
+    } else {
+        container.innerHTML = items.map(item => `
+            <div class="search-item" onclick='selectItem(${JSON.stringify(item)})'>
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <strong>${item.name}</strong>
+                        <span class="badge bg-secondary ms-1">${item.color}</span>
+                    </div>
+                    <span class="text-primary fw-bold">${item.unit_weight} كجم</span>
+                </div>
+                <small class="text-muted">
+                    ${item.length}×${item.width} م | ${item.thickness} مم | #${item.item_number}
+                </small>
+            </div>
+        `).join('');
+    }
+    container.classList.remove('d-none');
+}
+
+function selectItem(item) {
+    selectedItem = item;
+    document.getElementById('searchResults').classList.add('d-none');
+    document.getElementById('itemSearch').value = `${item.name} - ${item.color}`;
+    
+    document.getElementById('siName').textContent = item.name;
+    document.getElementById('siColor').textContent = item.color;
+    document.getElementById('siNumber').textContent = item.item_number;
+    document.getElementById('siLength').textContent = item.length + ' م';
+    document.getElementById('siWidth').textContent = item.width + ' م';
+    document.getElementById('siThickness').textContent = item.thickness + ' مم';
+    document.getElementById('siWeight').textContent = item.unit_weight;
+    
+    document.getElementById('selectedItemCard').classList.remove('d-none');
+    document.getElementById('expectedResult').classList.add('d-none');
+    document.getElementById('comparisonResult').classList.add('d-none');
+}
+
+function selectItemById(id) {
+    fetch(`/api/items/${id}`)
+        .then(r => r.json())
+        .then(item => selectItem(item));
+}
+
+function clearSelection() {
+    selectedItem = null;
+    document.getElementById('itemSearch').value = '';
+    document.getElementById('selectedItemCard').classList.add('d-none');
+    document.getElementById('expectedResult').classList.add('d-none');
+    document.getElementById('comparisonResult').classList.add('d-none');
+}
+
+function adjustQty(delta) {
+    const input = document.getElementById('quantity');
+    let val = parseInt(input.value) || 0;
+    val = Math.max(1, val + delta);
+    input.value = val;
+}
+
+function calculateWeight() {
+    if (!selectedItem) return;
+    const qty = parseInt(document.getElementById('quantity').value) || 1;
+    
+    fetch('/api/calculate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({item_id: selectedItem.id, quantity: qty})
+    })
+    .then(r => r.json())
+    .then(data => {
+        lastCalculation = data;
+        document.getElementById('expectedWeight').textContent = data.expected_weight.toLocaleString('ar-SA');
+        document.getElementById('expectedResult').classList.remove('d-none');
+        document.getElementById('comparisonResult').classList.add('d-none');
+        document.getElementById('actualWeight').value = '';
+        document.getElementById('actualWeight').focus();
+    });
+}
+
+function compareWeight() {
+    if (!selectedItem || !lastCalculation) return;
+    const actual = parseFloat(document.getElementById('actualWeight').value);
+    if (!actual || actual <= 0) {
+        alert('الرجاء إدخال الوزن الفعلي');
+        return;
+    }
+    
+    const qty = parseInt(document.getElementById('quantity').value) || 1;
+    
+    fetch('/api/calculate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            item_id: selectedItem.id, 
+            quantity: qty,
+            actual_weight: actual
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        lastCalculation = data;
+        showComparisonResult(data);
+    });
+}
+
+function showComparisonResult(data) {
+    const resultDiv = document.getElementById('comparisonResult');
+    const card = document.getElementById('resultCard');
+    const alert = document.getElementById('resultAlert');
+    
+    document.getElementById('resultStatus').textContent = data.status_text;
+    document.getElementById('diffValue').textContent = (data.difference > 0 ? '+' : '') + data.difference.toLocaleString('ar-SA');
+    document.getElementById('diffPercent').textContent = (data.difference_percent > 0 ? '+' : '') + data.difference_percent.toLocaleString('ar-SA');
+    
+    // Set colors based on status
+    card.className = 'card mb-3 border-2';
+    alert.className = 'mt-3 alert';
+    
+    if (data.status === 'matched') {
+        card.classList.add('border-success');
+        alert.classList.add('alert-success');
+        document.getElementById('resultIcon').textContent = '🟢';
+        document.getElementById('resultMessage').textContent = 'التحميل مطابق للفاتورة. يمكن إتمام الشحنة.';
+    } else if (data.status === 'small_diff') {
+        card.classList.add('border-warning');
+        alert.classList.add('alert-warning');
+        document.getElementById('resultIcon').textContent = '🟠';
+        document.getElementById('resultMessage').textContent = 'هناك فرق بسيط. يرجى المراجعة.';
+    } else {
+        card.classList.add('border-danger');
+        alert.classList.add('alert-danger');
+        document.getElementById('resultIcon').textContent = '🔴';
+        document.getElementById('resultMessage').textContent = 'تحذير! فرق كبير في الوزن. توقف وتحقق من الكمية.';
+    }
+    
+    // Show calibration suggestion if difference is significant but not huge
+    const calDiv = document.getElementById('calibrationSuggestion');
+    if (Math.abs(data.difference_percent) > 3 && Math.abs(data.difference_percent) < 20) {
+        calDiv.classList.remove('d-none');
+    } else {
+        calDiv.classList.add('d-none');
+    }
+    
+    resultDiv.classList.remove('d-none');
+}
+
+function hideCalibration() {
+    document.getElementById('calibrationSuggestion').classList.add('d-none');
+}
+
+function showCalibrationModal() {
+    if (!lastCalculation || !selectedItem) return;
+    const actual = parseFloat(document.getElementById('actualWeight').value);
+    const qty = parseInt(document.getElementById('quantity').value) || 1;
+    const newWeight = actual / qty;
+    
+    document.getElementById('calOldWeight').value = selectedItem.unit_weight + ' كجم';
+    document.getElementById('calNewWeight').value = newWeight.toFixed(3) + ' كجم';
+    
+    const modal = new bootstrap.Modal(document.getElementById('calibrationModal'));
+    modal.show();
+}
+
+function confirmCalibration() {
+    if (!lastCalculation || !selectedItem) return;
+    const actual = parseFloat(document.getElementById('actualWeight').value);
+    const qty = parseInt(document.getElementById('quantity').value) || 1;
+    const newWeight = actual / qty;
+    const reason = document.getElementById('calReason').value;
+    
+    fetch('/api/calibrate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            item_id: selectedItem.id,
+            new_weight: newWeight,
+            reason: reason
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        bootstrap.Modal.getInstance(document.getElementById('calibrationModal')).hide();
+        alert(data.message);
+        // Update selected item
+        selectedItem.unit_weight = newWeight;
+        document.getElementById('siWeight').textContent = newWeight.toFixed(3);
+        document.getElementById('calibrationSuggestion').classList.add('d-none');
+    });
+}
+
+function shareResult() {
+    if (!lastCalculation) return;
+    const text = `⚖️ حاسبة وزن الحديد\n` +
+        `الصنف: ${lastCalculation.item.name} - ${lastCalculation.item.color}\n` +
+        `الكمية: ${lastCalculation.quantity} حبة\n` +
+        `الوزن المتوقع: ${lastCalculation.expected_weight} كجم\n` +
+        `الوزن الفعلي: ${lastCalculation.actual_weight || '-'} كجم\n` +
+        `الحالة: ${lastCalculation.status_text}`;
+    
+    if (navigator.share) {
+        navigator.share({title: 'حاسبة وزن الحديد', text: text});
+    } else {
+        navigator.clipboard.writeText(text).then(() => alert('تم نسخ النتيجة!'));
+    }
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
+// Close search results when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#itemSearch') && !e.target.closest('#searchResults')) {
+        document.getElementById('searchResults').classList.add('d-none');
+    }
+});
+</script>
+{% endblock %}
+'''
+
+with open(f"{project_dir}/templates/index.html", "w", encoding="utf-8") as f:
+    f.write(index_html)
+
+print("index.html created!")
